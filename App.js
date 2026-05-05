@@ -21,15 +21,25 @@ export default function App() {
 
   const userCoords = userLocation?.coords;
 
-  const initialRegion = userCoords && {
-    latitude: userCoords.latitude,
-    longitude: userCoords.longitude,
-    latitudeDelta: LATITUDE_DELTA,
-    longitudeDelta: LONGITUDE_DELTA,
-  };
+  const initialRegion =
+    userCoords && {
+      latitude: userCoords.latitude,
+      longitude: userCoords.longitude,
+      latitudeDelta: LATITUDE_DELTA,
+      longitudeDelta: LONGITUDE_DELTA,
+    };
 
-  const routePolyline = route && <Polyline coordinates={route} />;
-  const carMarker = carLocation && <Marker coordinate={carLocation} />;
+  const routePolyline =
+    route && (
+      <Polyline
+        coordinates={route}
+        strokeWidth={4}
+        strokeColor="#2b6cff"
+      />
+    );
+
+  const carMarker =
+    carLocation && <Marker coordinate={carLocation} title="Carro" />;
 
   function overviewRoute() {
     if (!route) return;
@@ -40,8 +50,10 @@ export default function App() {
     const latCenter = (coordsA.latitude + coordsB.latitude) / 2;
     const lngCenter = (coordsA.longitude + coordsB.longitude) / 2;
 
-    const latDelta = Math.abs(coordsA.latitude - coordsB.latitude) * 1.5;
-    const longDelta = Math.abs(coordsA.longitude - coordsB.longitude) * 1.5;
+    const latDelta =
+      Math.abs(coordsA.latitude - coordsB.latitude) * 1.5;
+    const longDelta =
+      Math.abs(coordsA.longitude - coordsB.longitude) * 1.5;
 
     mapRef.current.animateToRegion(
       {
@@ -54,6 +66,47 @@ export default function App() {
     );
   }
 
+  useEffect(() => {
+    async function loadLocation() {
+      const location = await getUserLocation();
+      setUserLocation(location);
+    }
+
+    loadLocation();
+  }, []);
+
+  async function saveCarLocation() {
+    if (!userCoords) return;
+
+    const location = {
+      latitude: userCoords.latitude,
+      longitude: userCoords.longitude,
+    };
+
+    setCarLocation(location);
+
+    const address = await fetchAddress(location);
+    setCarAddress(address?.display_name || "Endereço não encontrado");
+  }
+
+  async function pathToCar() {
+    if (!userCoords || !carLocation) return;
+
+    const routeCoords = await fetchRoute(userCoords, carLocation);
+    setRoute(routeCoords);
+
+    setTimeout(() => {
+      overviewRoute();
+    }, 500);
+  }
+
+  if (!initialRegion) {
+    return (
+      <View style={styles.loading}>
+        <Text>Carregando mapa...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -78,14 +131,22 @@ export default function App() {
           {carAddress || "Nenhuma localização salva"}
         </Text>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={saveCarLocation}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={saveCarLocation}
+        >
           <Text style={styles.primaryText}>
             Marcar localização do carro
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={pathToCar}>
-          <Text style={styles.secondaryText}>Ir até o carro</Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={pathToCar}
+        >
+          <Text style={styles.secondaryText}>
+            Ir até o carro
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -96,6 +157,11 @@ const styles = StyleSheet.create({
   map: {
     width: "100%",
     height: "100%",
+  },
+  loading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 
   bottomSheet: {

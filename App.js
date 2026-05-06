@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import MapView, { UrlTile, Polyline, Marker } from "react-native-maps";
+import MapView, { UrlTile, Polyline, Marker, Circle } from "react-native-maps";
 import { StyleSheet, View, Text, TouchableOpacity, Animated } from "react-native";
 import { Dimensions } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -59,15 +59,26 @@ export default function App() {
 
   const carMarker =
     carLocation && (
-      <Marker
-        coordinate={carLocation}
-        title="Carro"
-        tracksViewChanges={false}
-      >
-        <View style={styles.carMarkerContainer}>
-          <FontAwesome name="car" size={24} color="black" />
-        </View>
-      </Marker>
+      <>
+        <Circle
+          center={carLocation}
+          radius={25}
+          strokeWidth={2}
+          strokeColor="rgba(43,108,255,0.7)"
+          fillColor="rgba(43,108,255,0.25)"
+        />
+        <Marker
+          coordinate={carLocation}
+          title="Carro marcado"
+          description="Toque para remover a marcacao"
+          onPress={removeCarLocation}
+          tracksViewChanges={false}
+        >
+          <View style={styles.carMarkerContainer}>
+            <FontAwesome name="car" size={24} color="black" />
+          </View>
+        </Marker>
+      </>
     );
 
   function overviewRoute() {
@@ -170,6 +181,43 @@ export default function App() {
     }, 3000);
   }
 
+  async function saveCarLocationByMapPress(event) {
+    const { coordinate } = event.nativeEvent;
+    if (!coordinate) return;
+
+    const location = {
+      latitude: coordinate.latitude,
+      longitude: coordinate.longitude,
+    };
+
+    const address = await fetchAddress(location);
+    const addressText = address?.display_name || "Endereço não encontrado";
+    const currentTime = new Date();
+
+    setCarLocation(location);
+    setCarLocationTime(currentTime);
+    setCarAddress(addressText);
+    setRoute(null);
+    setShowSuccessBadge(true);
+
+    try {
+      await SecureStore.setItemAsync(
+        "carLocation",
+        JSON.stringify({
+          location,
+          address: addressText,
+          time: currentTime.toISOString(),
+        })
+      );
+    } catch (error) {
+      console.error("Erro ao salvar localização:", error);
+    }
+
+    setTimeout(() => {
+      setShowSuccessBadge(false);
+    }, 3000);
+  }
+
   async function pathToCar() {
     if (!userCoords || !carLocation) return;
 
@@ -179,6 +227,19 @@ export default function App() {
     setTimeout(() => {
       overviewRoute();
     }, 500);
+  }
+
+  async function removeCarLocation() {
+    setCarLocation(null);
+    setCarAddress("");
+    setCarLocationTime(null);
+    setRoute(null);
+
+    try {
+      await SecureStore.deleteItemAsync("carLocation");
+    } catch (error) {
+      console.error("Erro ao remover localização:", error);
+    }
   }
 
   const toggleBottomSheet = () => {
@@ -209,6 +270,7 @@ export default function App() {
         style={styles.map}
         mapType="none"
         initialRegion={initialRegion}
+        onPress={saveCarLocationByMapPress}
       >
         <UrlTile
           urlTemplate="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
@@ -245,6 +307,11 @@ export default function App() {
             <Text style={styles.address}>
               {carAddress || "Nenhuma localização salva"}
             </Text>
+            {carLocation && (
+              <Text style={styles.coordinates}>
+                {carLocation.latitude.toFixed(5)}, {carLocation.longitude.toFixed(5)}
+              </Text>
+            )}
             {carLocationTime && (
               <Text style={styles.timestamp}>
                 Estacionado há {Math.floor((new Date() - carLocationTime) / 60000)} min - {carLocationTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -269,6 +336,18 @@ export default function App() {
                 Ir até o carro
               </Text>
             </TouchableOpacity>
+
+            {carLocation && (
+              <TouchableOpacity
+                style={styles.dangerButton}
+                onPress={removeCarLocation}
+              >
+                <FontAwesome name="trash" size={20} color="#d63031" />
+                <Text style={styles.dangerText}>
+                  Remover localização do carro
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </Animated.View>
@@ -369,6 +448,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  coordinates: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 6,
+  },
+
   primaryButton: {
     marginTop: 15,
     backgroundColor: "#2b6cff",
@@ -395,6 +480,23 @@ const styles = StyleSheet.create({
 
   secondaryText: {
     color: "#2b6cff",
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
+
+  dangerButton: {
+    marginTop: 10,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#d63031",
+  },
+
+  dangerText: {
+    color: "#d63031",
     fontWeight: "bold",
     marginLeft: 10,
   },

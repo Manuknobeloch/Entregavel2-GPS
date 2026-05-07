@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import MapView, { UrlTile, Polyline, Marker, Circle } from "react-native-maps";
-import { StyleSheet, View, Text, TouchableOpacity, Animated } from "react-native";
+import { StyleSheet, View, Text, TouchableOpacity, Modal, Animated } from "react-native";
 import { Dimensions } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
@@ -25,6 +25,8 @@ export default function App() {
   const [route, setRoute] = useState(null);
   const [showSuccessBadge, setShowSuccessBadge] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+
 
   const userCoords = userLocation?.coords;
 
@@ -71,7 +73,7 @@ export default function App() {
           coordinate={carLocation}
           title="Carro marcado"
           description="Toque para remover a marcacao"
-          onPress={removeCarLocation}
+          onPress={() => setShowRemoveModal(true)}
           tracksViewChanges={false}
         >
           <View style={styles.carMarkerContainer}>
@@ -260,6 +262,38 @@ export default function App() {
 
   return (
     <View style={{ flex: 1 }}>
+    <Modal
+        visible={showRemoveModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRemoveModal(false)}
+      > 
+        <View style={styles.modalOverlay}> 
+          <View style={styles.modalBox}>
+            <FontAwesome name="exclamation-triangle" size={32} color="#d63031" />
+            <Text style={styles.modalTitle}>Remover localização?</Text>
+            <Text style={styles.modalSubtitle}>
+              A localização do carro será apagada permanentemente.
+            </Text> 
+            <TouchableOpacity 
+              style={styles.modalDangerButton} 
+              onPress={() => { 
+                setShowRemoveModal(false); 
+                removeCarLocation(); 
+              }} 
+            > 
+              <Text style={styles.modalDangerText}>Sim, remover</Text>
+            </TouchableOpacity> 
+            <TouchableOpacity
+              style={styles.modalCancelButton} 
+              onPress={() => setShowRemoveModal(false)} 
+            > 
+              <Text style={styles.modalCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View> 
+        </View> 
+      </Modal>
+
       {showSuccessBadge && (
         <View style={styles.successBadge}>
           <Text style={styles.badgeText}>✓ Localização salva com sucesso</Text>
@@ -326,7 +360,6 @@ export default function App() {
                 Marcar localização do carro
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={pathToCar}
@@ -340,7 +373,7 @@ export default function App() {
             {carLocation && (
               <TouchableOpacity
                 style={styles.dangerButton}
-                onPress={removeCarLocation}
+                onPress={() => setShowRemoveModal(true)}
               >
                 <FontAwesome name="trash" size={20} color="#d63031" />
                 <Text style={styles.dangerText}>
@@ -499,5 +532,60 @@ const styles = StyleSheet.create({
     color: "#d63031",
     fontWeight: "bold",
     marginLeft: 10,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 12,
+    color: "#222",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  modalDangerButton: {
+    backgroundColor: "#d63031",
+    width: "100%",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  modalDangerText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
+  modalCancelButton: {
+    width: "100%",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  modalCancelText: {
+    color: "#555",
+    fontWeight: "bold",
+    fontSize: 15,
   },
 });
